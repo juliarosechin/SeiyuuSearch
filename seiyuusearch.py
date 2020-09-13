@@ -11,6 +11,8 @@ TOKEN = os.getenv('DISCORD_TOKEN')
 
 # emojis 1 thru 10 that will be used to navigate search results, indexed from 0
 emojis = ['1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟']
+# dictionary of category-specific search terms
+categories = {'anime':'title', 'manga':'title', 'person':'name', 'character':'name'}
 
 bot = commands.Bot(command_prefix='!')
 
@@ -19,49 +21,42 @@ async def on_ready():
     print(f'{bot.user.name} has connected to Discord!')
 
 # functions to make implementing future commands easier
-async def pickresult(ctx, category, results, sender): # formats search results and sends them in a message
-    categories = ['anime', 'manga', 'person', 'character']
-    
-
-    if category == categories[0]:
-        # creates list of top ten search results to return to user
-        animes = results.get('results')
-        index = 0
-        resultstr = ""
-        for anime in animes: # in case there are fewer than 10 results
-            if index == 10:
-                break
-            index += 1
-            resultstr += str(index) + ". " + anime.get("title") + "\n"
+async def pickresult(ctx, category, allresults, sender): # formats search results and sends them in a message
+    # creates list of top ten search results to return to user
+    results = allresults.get('results')
+    index = 0
+    resultstr = ""
+    for result in results: # in case there are fewer than 10 results
+        if index == 10:
+            break
+        index += 1
+        resultstr += str(index) + ". " + result.get(categories.get(category)) + "\n"
 
     tosend = "**Here are the top " + str(index) + " search results:**\n" + resultstr + "\nPlease react with the emoji that corresponds to the " + category + " you'd like to learn more about."
     searchresults = await ctx.send(tosend) # searchresults is of type Message
     
-    for emoji in emojis: # adds emojis 1-10 to the search results message
-        await searchresults.add_reaction(emoji)
+    for x in range(index): # adds emojis 1-10 to the search results message
+        await searchresults.add_reaction(emojis[x])
 
     def check(reaction, user): # checks to see if the person who send the command reacted with one of the emojis 1-10
-        return (str(reaction.emoji) in emojis) and (user == sender)
+        return (str(reaction.emoji) in emojis) and (emojis.index(str(reaction.emoji)) < index) and (user == sender)
 
     reaction, user = await bot.wait_for('reaction_add', check = check)
     #await ctx.send(str(user) + " reacted with " + str(reaction.emoji)) # test to make sure it's getting the right reaction
     return reaction
 
-def shortenresults(category, results): # creates array of results with title and mal_id only
-    categories = ['anime', 'manga', 'person', 'character']
+def shortenresults(category, allresults): # creates array of results with title and mal_id only
     shortresults = []
-    
-    if category == categories[0]:
-        animes = results.get("results")
-        for a in animes:
-            anime = {"mal_id": a.get("mal_id"), "title": a.get("title")}
-            shortresults.append(anime)
+
+    results = allresults.get("results")
+    for result in results:
+        curr = {"mal_id": result.get("mal_id"), categories.get(category): result.get(categories.get(category))}
+        shortresults.append(curr)
     
     return shortresults
-        
 
 # changes the bot command prefix
-@bot.command(name='prefix', help='Changes the bot\'s prefix to a different single character.')
+@bot.command(name='prefix', help='Changes the bot\'s prefix to a specified single character.')
 @commands.has_guild_permissions(administrator=True)
 async def prefix(ctx, prefix):
     if len(prefix) != 1:
@@ -73,7 +68,7 @@ async def prefix(ctx, prefix):
     await ctx.send("Bot prefix has been changed from `" + old_prefix + "` to `" + prefix + "`")
 
 # user searches for a series, then bot returns the seiyuus for the characters in that series
-@bot.command(name='anime', help='Look up the seiyuus in a certain anime.')
+@bot.command(name='anime', help='Look up the Japanese and English seiyuus in a certain anime.')
 async def anime_search(ctx, query):
     sender = ctx.message.author
     results = jikan.search('anime', query) #TODO: add parameters to limit search results to 10 # searches with the user's query
@@ -85,7 +80,7 @@ async def anime_search(ctx, query):
     animeinfo = jikan.anime(mal_id, extension='characters_staff')
     #pprint.pprint(animeinfo)
 
-    # list out all seiyuus
+    # list out jp and eng seiyuus for all chars
     allchars = animeinfo.get("characters")
     formattedchars = ""
     for char in allchars:
@@ -93,21 +88,65 @@ async def anime_search(ctx, query):
         role = char.get("role")
         seiyuus = ""
         for va in char.get("voice_actors"):
-            if seiyuus != "":
-                seiyuus += ", "
-            name = va.get("name")
-            lang = va.get("language")
-            seiyuus += name + " (" + lang + ")"
-        formattedchars += "     - " + charname + " (" + role + "): " + seiyuus + "\n"
+            if va.get('language') == 'English' or 'Japanese':
+                if seiyuus != "":
+                    seiyuus += "; "
+                name = va.get("name")
+                lang = va.get("language")
+                seiyuus += name + " (" + lang + ")"
+
+            formattedchars += "     - " + charname + " (" + role + "): " + seiyuus + "\n"
     
-    tosend = "**Here are the seiyuus for " + shortresults[emojis.index(str(reaction.emoji))].get("title") + ":**\n" + formattedchars
+    tosend = "**Here are the English and Japanese seiyuus for " + shortresults[emojis.index(str(reaction.emoji))].get(categories.get('anime')) + ":**\n" + formattedchars
+    await ctx.send(tosend)
+
+# user searches for a seiyuu, then bot returns their 20 most recent roles
+@bot.command(name='va', help='Look up the roles of a certain seiyuu.')
+async def va_search(ctx, query):
+    sender = ctx.message.author
+    results = jikan.search('person', query) #TODO: add parameters to limit search results to 10 # searches with the user's query
+    #pprint.pprint(results)
+    shortresults = shortenresults('person', results)
+    reaction = await pickresult(ctx, 'person', results, sender)
+
+    mal_id = shortresults[emojis.index(str(reaction.emoji))].get('mal_id')
+    personinfo = jikan.person(mal_id)
+    pprint.pprint(personinfo)
+
+    #TODO: format personinfo and send with ctx
+
+# user searches for a character, then bot returns their vas
+@bot.command(name='char', help='Look up the seiyuus for a certain character.')
+async def char_search(ctx, query):
+    sender = ctx.message.author
+    results = jikan.search('character', query) #TODO: add parameters to limit search results to 10 # searches with the user's query
+    #pprint.pprint(results)
+    shortresults = shortenresults('character', results)
+    reaction = await pickresult(ctx, 'character', results, sender)
+
+    mal_id = shortresults[emojis.index(str(reaction.emoji))].get('mal_id')
+    charinfo = jikan.character(mal_id)
+    pprint.pprint(charinfo)
+
+    #TODO: format charinfo and send with ctx
+    vas = charinfo.get("voice_actors")
+    seiyuus = ""
+    for va in vas:
+        name = va.get("name")
+        lang = va.get("language")
+        seiyuus += "     - " + name + " (" + lang + ")\n"
+    
+    tosend = "**Here are the seiyuus for " + shortresults[emojis.index(str(reaction.emoji))].get(categories.get('character')) + ":**\n" + seiyuus
     await ctx.send(tosend)
 
 # error messages
 @bot.event
 async def on_command_error(ctx, error):
-    if isinstance(error, commands.errors.MissingRequiredArgument):
+    if isinstance(error, commands.errors.MissingRequiredArgument) and (ctx.command.name == 'prefix'):
+        await ctx.send('Please specify a new prefix.')
+    elif isinstance(error, commands.errors.MissingRequiredArgument):
         await ctx.send('Please specify a search query.')
+
     if isinstance(error, commands.errors.CheckFailure):
         await ctx.send('You do not have the correct permissions for this command.')
 
