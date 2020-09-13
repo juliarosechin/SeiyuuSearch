@@ -18,6 +18,48 @@ bot = commands.Bot(command_prefix='!')
 async def on_ready():
     print(f'{bot.user.name} has connected to Discord!')
 
+# functions to make implementing future commands easier
+async def pickresult(ctx, category, results, sender): # formats search results and sends them in a message
+    categories = ['anime', 'manga', 'person', 'character']
+    
+
+    if category == categories[0]:
+        # creates list of top ten search results to return to user
+        animes = results.get('results')
+        index = 0
+        resultstr = ""
+        for anime in animes: # in case there are fewer than 10 results
+            if index == 10:
+                break
+            index += 1
+            resultstr += str(index) + ". " + anime.get("title") + "\n"
+
+    tosend = "**Here are the top " + str(index) + " search results:**\n" + resultstr + "\nPlease react with the emoji that corresponds to the " + category + " you'd like to learn more about."
+    searchresults = await ctx.send(tosend) # searchresults is of type Message
+    
+    for emoji in emojis: # adds emojis 1-10 to the search results message
+        await searchresults.add_reaction(emoji)
+
+    def check(reaction, user): # checks to see if the person who send the command reacted with one of the emojis 1-10
+        return (str(reaction.emoji) in emojis) and (user == sender)
+
+    reaction, user = await bot.wait_for('reaction_add', check = check)
+    #await ctx.send(str(user) + " reacted with " + str(reaction.emoji)) # test to make sure it's getting the right reaction
+    return reaction
+
+def shortenresults(category, results): # creates array of results with title and mal_id only
+    categories = ['anime', 'manga', 'person', 'character']
+    shortresults = []
+    
+    if category == categories[0]:
+        animes = results.get("results")
+        for a in animes:
+            anime = {"mal_id": a.get("mal_id"), "title": a.get("title")}
+            shortresults.append(anime)
+    
+    return shortresults
+        
+
 # changes the bot command prefix
 @bot.command(name='prefix', help='Changes the bot\'s prefix to a different single character.')
 @commands.has_guild_permissions(administrator=True)
@@ -33,40 +75,15 @@ async def prefix(ctx, prefix):
 # user searches for a series, then bot returns the seiyuus for the characters in that series
 @bot.command(name='anime', help='Look up the seiyuus in a certain anime.')
 async def anime_search(ctx, query):
-    # searches with the user's query
-    results = jikan.search('anime', query, parameters={'limit':10})
-    pprint.pprint(results)
+    sender = ctx.message.author
+    results = jikan.search('anime', query) #TODO: add parameters to limit search results to 10 # searches with the user's query
+    #pprint.pprint(results)
+    shortresults = shortenresults('anime', results)
+    reaction = await pickresult(ctx, 'anime', results, sender)
 
-    # creates array of results with title and mal_id only
-    shortresults = []
-    animes = results.get("results")
-    for a in animes:
-        anime = {"mal_id": a.get("mal_id"), "title": a.get("title")}
-        shortresults.append(anime)
-    
-    # creates list of top ten search results to return to user
-    index = 0
-    resultstr = ""
-    for result in shortresults: # in case there are fewer than 10 results
-        if index == 10:
-            break
-        index += 1
-        resultstr += str(index) + ". " + result.get("title") + "\n"
-
-    tosend = "**Here are the top " + str(index) + " search results:**\n" + resultstr + "\nPlease react with the emoji that corresponds to the series you'd like to learn more about."
-    searchresults = await ctx.send(tosend) # searchresults is of type Message
-
-    for emoji in emojis: # adds emojis 1-10 to the search results message
-        await searchresults.add_reaction(emoji)
-
-    def check(reaction, user): # checks to see if the user reacted with one of the emojis 1-10
-        return (str(reaction.emoji) in emojis) and (user != searchresults.author)
-
-    reaction, user = await bot.wait_for('reaction_add', check = check)
-    #await ctx.send(str(user) + " reacted with " + str(reaction.emoji)) # test to make sure it's getting the right reaction
     mal_id = shortresults[emojis.index(str(reaction.emoji))].get('mal_id')
     animeinfo = jikan.anime(mal_id, extension='characters_staff')
-    pprint.pprint(animeinfo)
+    #pprint.pprint(animeinfo)
 
     # list out all seiyuus
     allchars = animeinfo.get("characters")
