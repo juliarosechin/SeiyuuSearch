@@ -18,12 +18,24 @@ bot = commands.Bot(command_prefix='!')
 async def on_ready():
     print(f'{bot.user.name} has connected to Discord!')
 
+# changes the bot command prefix
+@bot.command(name='prefix', help='Changes the bot\'s prefix to a different single character.')
+@commands.has_guild_permissions(administrator=True)
+async def prefix(ctx, prefix):
+    if len(prefix) != 1:
+        await ctx.send('Please choose a single character as the new prefix.')
+        return
+    global bot
+    old_prefix = ctx.prefix
+    bot.command_prefix = prefix
+    await ctx.send("Bot prefix has been changed from `" + old_prefix + "` to `" + prefix + "`")
+
 # user searches for a series, then bot returns the seiyuus for the characters in that series
 @bot.command(name='anime', help='Look up the seiyuus in a certain anime.')
 async def anime_search(ctx, query):
     # searches with the user's query
-    results = jikan.search('anime', query)
-    # pprint.pprint(results)
+    results = jikan.search('anime', query, parameters={'limit':10})
+    pprint.pprint(results)
 
     # creates array of results with title and mal_id only
     shortresults = []
@@ -73,11 +85,13 @@ async def anime_search(ctx, query):
     
     tosend = "**Here are the seiyuus for " + shortresults[emojis.index(str(reaction.emoji))].get("title") + ":**\n" + formattedchars
     await ctx.send(tosend)
-    
+
 # error messages
 @bot.event
 async def on_command_error(ctx, error):
     if isinstance(error, commands.errors.MissingRequiredArgument):
         await ctx.send('Please specify a search query.')
+    if isinstance(error, commands.errors.CheckFailure):
+        await ctx.send('You do not have the correct permissions for this command.')
 
 bot.run(TOKEN)
