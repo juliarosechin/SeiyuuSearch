@@ -56,7 +56,7 @@ def shortenresults(category, allresults): # creates array of results with title 
     return shortresults
 
 # changes the bot command prefix
-@bot.command(name='prefix', help='Changes the bot\'s prefix to a specified single character.')
+@bot.command(name='prefix', help='Changes the bot\'s prefix to a specified single character')
 @commands.has_guild_permissions(administrator=True)
 async def prefix(ctx, prefix):
     if len(prefix) != 1:
@@ -68,7 +68,7 @@ async def prefix(ctx, prefix):
     await ctx.send("Bot prefix has been changed from `" + old_prefix + "` to `" + prefix + "`")
 
 # user searches for a series, then bot returns the seiyuus for the characters in that series
-@bot.command(name='anime', help='Look up the Japanese and English seiyuus in a certain anime.')
+@bot.command(name='anime', help='Look up the Japanese and English seiyuus in a certain anime on MAL', aliases=['show', 'series'])
 async def anime_search(ctx, query):
     sender = ctx.message.author
     results = jikan.search('anime', query) #TODO: add parameters to limit search results to 10 # searches with the user's query
@@ -101,8 +101,8 @@ async def anime_search(ctx, query):
     await ctx.send(tosend)
 
 # user searches for a seiyuu, then bot returns their 20 most recent roles
-@bot.command(name='va', help='Look up the roles of a certain seiyuu.')
-async def va_search(ctx, query):
+@bot.command(name='va', help='Look up the roles of a certain seiyuu on MAL', aliases=['seiyuu'])
+async def va_search(ctx, query, series_prefix = ''):
     sender = ctx.message.author
     results = jikan.search('person', query) #TODO: add parameters to limit search results to 10 # searches with the user's query
     #pprint.pprint(results)
@@ -111,12 +111,30 @@ async def va_search(ctx, query):
 
     mal_id = shortresults[emojis.index(str(reaction.emoji))].get('mal_id')
     personinfo = jikan.person(mal_id)
-    pprint.pprint(personinfo)
+    #pprint.pprint(personinfo)
 
     #TODO: format personinfo and send with ctx
+    jobs = personinfo.get('voice_acting_roles')
+    index = 0
+    formatted = ""    
+    for job in jobs:
+        if index == 20:
+            break
+        anime = job.get('anime').get('name')
+        char = job.get('character').get('name')
+        role = job.get('role')
+        if (anime.lower()).startswith(series_prefix):
+            formatted += "     - " + char + " (" + role + ") in *" + anime + "*\n"
+            index += 1
+    
+    if series_prefix == '':
+        tosend = "**Here are " + shortresults[emojis.index(str(reaction.emoji))].get(categories.get('person')) + "'s first " + str(index) + " roles in alphabetical order:**\n" + formatted
+    else:
+        tosend = "**Here are " + shortresults[emojis.index(str(reaction.emoji))].get(categories.get('person')) + "'s first " + str(index) + " roles that start with " + series_prefix.capitalize() + ":**\n" + formatted
+    await ctx.send(tosend)
 
 # user searches for a character, then bot returns their vas
-@bot.command(name='char', help='Look up the seiyuus for a certain character.')
+@bot.command(name='char', help='Look up the seiyuus for a certain character on MAL', aliases=['character'])
 async def char_search(ctx, query):
     sender = ctx.message.author
     results = jikan.search('character', query) #TODO: add parameters to limit search results to 10 # searches with the user's query
@@ -126,7 +144,7 @@ async def char_search(ctx, query):
 
     mal_id = shortresults[emojis.index(str(reaction.emoji))].get('mal_id')
     charinfo = jikan.character(mal_id)
-    pprint.pprint(charinfo)
+    #pprint.pprint(charinfo)
 
     #TODO: format charinfo and send with ctx
     vas = charinfo.get("voice_actors")
