@@ -1,6 +1,5 @@
 # seiyuusearch.py
 import os
-import pprint
 from dotenv import load_dotenv
 from discord.ext import commands
 from jikanpy import Jikan
@@ -72,13 +71,11 @@ async def prefix(ctx, prefix):
 async def anime_search(ctx, query):
     sender = ctx.message.author
     results = jikan.search('anime', query) #TODO: add parameters to limit search results to 10 # searches with the user's query
-    #pprint.pprint(results)
     shortresults = shortenresults('anime', results)
     reaction = await pickresult(ctx, 'anime', results, sender)
 
     mal_id = shortresults[emojis.index(str(reaction.emoji))].get('mal_id')
     animeinfo = jikan.anime(mal_id, extension='characters_staff')
-    #pprint.pprint(animeinfo)
 
     # list out jp and eng seiyuus for all chars
     allchars = animeinfo.get("characters")
@@ -105,13 +102,11 @@ async def anime_search(ctx, query):
 async def va_search(ctx, query, series_prefix = ''):
     sender = ctx.message.author
     results = jikan.search('person', query) #TODO: add parameters to limit search results to 10 # searches with the user's query
-    #pprint.pprint(results)
     shortresults = shortenresults('person', results)
     reaction = await pickresult(ctx, 'person', results, sender)
 
     mal_id = shortresults[emojis.index(str(reaction.emoji))].get('mal_id')
     personinfo = jikan.person(mal_id)
-    #pprint.pprint(personinfo)
 
     #TODO: format personinfo and send with ctx
     jobs = personinfo.get('voice_acting_roles')
@@ -138,13 +133,11 @@ async def va_search(ctx, query, series_prefix = ''):
 async def char_search(ctx, query):
     sender = ctx.message.author
     results = jikan.search('character', query) #TODO: add parameters to limit search results to 10 # searches with the user's query
-    #pprint.pprint(results)
     shortresults = shortenresults('character', results)
     reaction = await pickresult(ctx, 'character', results, sender)
 
     mal_id = shortresults[emojis.index(str(reaction.emoji))].get('mal_id')
     charinfo = jikan.character(mal_id)
-    #pprint.pprint(charinfo)
 
     #TODO: format charinfo and send with ctx
     vas = charinfo.get("voice_actors")
