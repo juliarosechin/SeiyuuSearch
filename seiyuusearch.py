@@ -61,7 +61,6 @@ async def prefix(ctx, prefix):
     if len(prefix) != 1:
         await ctx.send('Please choose a single character as the new prefix.')
         return
-    global bot
     old_prefix = ctx.prefix
     bot.command_prefix = prefix
     await ctx.send("Bot prefix has been changed from `" + old_prefix + "` to `" + prefix + "`")
