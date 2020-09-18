@@ -3,15 +3,16 @@ import os
 from dotenv import load_dotenv
 from discord.ext import commands
 from jikanpy import Jikan
+from typing import Dict, List
 
 jikan = Jikan()
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
 
 # emojis 1 thru 10 that will be used to navigate search results, indexed from 0
-emojis = ['1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟']
+emojis = ['1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟'] #type: List[str]
 # dictionary of category-specific search terms
-categories = {'anime':'title', 'manga':'title', 'person':'name', 'character':'name'}
+categories = {'anime':'title', 'manga':'title', 'person':'name', 'character':'name'} # type: Dict[str, str]
 
 bot = commands.Bot(command_prefix='!')
 
